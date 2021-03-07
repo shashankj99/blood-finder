@@ -1,5 +1,6 @@
 import 'package:blood_finder/pages/login.dart';
 import 'package:blood_finder/pages/register.dart';
+import 'package:blood_finder/pages/verification.dart';
 import 'package:flutter/material.dart';
 
 void main() => runApp(MyApp());
@@ -13,7 +14,8 @@ class MyApp extends StatelessWidget {
       title: 'Blood Finder',
       routes: {
         '/login' : (BuildContext context) => LoginPage(),
-        '/register': (BuildContext context) => RegisterPage()
+        '/register': (BuildContext context) => RegisterPage(),
+        '/otp-verification': (BuildContext context) => Verification(),
       },
       theme: ThemeData(
         cursorColor: Colors.red[800],

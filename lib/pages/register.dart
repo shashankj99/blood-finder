@@ -1,5 +1,7 @@
 import 'package:blood_finder/components/mobile_number_validator.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -7,14 +9,15 @@ class RegisterPage extends StatefulWidget {
 }
 
 class RegisterPageState extends State<RegisterPage> {
-  // create a global form key
+  // create a global form & scaffold key
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _formKey = GlobalKey<FormState>();
 
   // define form variables
-  String _fullName, _mobileNumberField, _password;
+  String _firstName, _lastName, _mobileNumberField, _password;
 
   // create a variable for obscure text property
-  bool _obscureText = true;
+  bool _isSubmitting = false, _obscureText = true;
 
   /*
    * Method to show the title widget for the form
@@ -27,23 +30,46 @@ class RegisterPageState extends State<RegisterPage> {
   }
 
   /*
-   * Method to show full name widget
+   * Method to show first name widget
    */
-  Widget _showFullNameInput() {
+  Widget _showFirstNameInput() {
     return Padding(
       padding: EdgeInsets.only(top: 20.0),
       child: TextFormField(
-        onSaved: (val) => _fullName = val,
+        onSaved: (val) => _firstName = val,
         validator: (val) =>
-            (val.length <= 0) ? 'Full name cannot be blank' : null,
+            (val.length <= 0) ? 'First name cannot be blank' : null,
         decoration: InputDecoration(
           prefixIcon: Icon(
             Icons.face,
             color: Colors.red[800],
           ),
           border: OutlineInputBorder(),
-          labelText: 'Full Name',
-          hintText: 'Enter full name of the user',
+          labelText: 'First Name',
+          hintText: 'Enter first name of the user',
+        ),
+      ),
+    );
+  }
+
+  /*
+   * Method to show last name widget
+   */
+  Widget _showLastNameInput() {
+    return Padding(
+      padding: EdgeInsets.only(top: 20.0),
+      child: TextFormField(
+        onSaved: (val) => _lastName = val,
+        validator: (val) =>
+            (val.length <= 0) ? 'Last name cannot be blank' : null,
+        decoration: InputDecoration(
+          prefixIcon: Icon(
+            Icons.face,
+            color: Colors.red[800],
+          ),
+          border: OutlineInputBorder(),
+          labelText: 'Last Name',
+          hintText: 'Enter last name of the user',
         ),
       ),
     );
@@ -94,9 +120,8 @@ class RegisterPageState extends State<RegisterPage> {
             onTap: () {
               setState(() => _obscureText = !_obscureText);
             },
-            child: Icon(
-                (_obscureText) ? Icons.visibility : Icons.visibility_off
-            ),
+            child:
+                Icon((_obscureText) ? Icons.visibility : Icons.visibility_off),
           ),
           border: OutlineInputBorder(),
           labelText: 'Password',
@@ -114,17 +139,22 @@ class RegisterPageState extends State<RegisterPage> {
       padding: EdgeInsets.only(top: 20.0),
       child: Column(
         children: [
-          RaisedButton(
-            child: Text(
-              'Register',
-              style: TextStyle(color: Colors.white),
-            ),
-            elevation: 8.0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10.0))),
-            color: Theme.of(context).primaryColor,
-            onPressed: () => _submit(),
-          ),
+          _isSubmitting == true
+              ? CircularProgressIndicator(
+                  valueColor:
+                      AlwaysStoppedAnimation(Theme.of(context).primaryColor),
+                )
+              : RaisedButton(
+                  child: Text(
+                    'Register',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  elevation: 8.0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10.0))),
+                  color: Theme.of(context).primaryColor,
+                  onPressed: () => _submit(),
+                ),
           FlatButton(
             onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
             child: Text(
@@ -147,13 +177,70 @@ class RegisterPageState extends State<RegisterPage> {
     // proceed of validation succeeds
     if (_form.validate()) {
       _form.save();
-      print ('Full name: $_fullName, Mobile Number: $_mobileNumberField, Password: $_password');
+      _registerUser();
+    }
+  }
+
+  /*
+   * Method to make APi call to register user
+   */
+  Future<void> _registerUser() async {
+    setState(() => _isSubmitting = true);
+
+    // make API call
+    http.Response response = await http
+        .post('https://secret-retreat-83337.herokuapp.com/register', body: {
+      'first_name': _firstName,
+      'last_name': _lastName,
+      'mobile': _mobileNumberField,
+      'password': _password,
+    });
+
+    // decode response body
+    final responseData = json.decode(response.body);
+
+    setState(() => _isSubmitting = false);
+
+    // call method that displays message in the snack bar
+    _showMessage(responseData);
+  }
+
+  /*
+   * Method to show response message in snack bar
+   */
+  void _showMessage(responseData) {
+    String _message;
+
+    if (responseData['status'] == 422)
+      _message = responseData['errors']['mobile'][0];
+    else
+      _message = responseData['message'];
+
+    // create snack bar widget
+    final _snackBar = SnackBar(
+        backgroundColor: Colors.white,
+        content: Text(
+          _message,
+          style: TextStyle(
+            color: (responseData['status'] == 200) ? Colors.green : Colors.red,
+          ),
+        ));
+
+    // show the snack bar in the scaffold
+    _scaffoldKey.currentState.showSnackBar(_snackBar);
+
+    // reset form value &
+    // navigate to otp verification if registered successfully
+    if (responseData['status'] == 200) {
+      _formKey.currentState.reset();
+      Navigator.pushReplacementNamed(context, '/otp-verification');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: Text('Blood Finder > Register New User'),
       ),
@@ -167,7 +254,8 @@ class RegisterPageState extends State<RegisterPage> {
                 children: [
                   _showTitleText(),
                   Padding(padding: EdgeInsets.only(top: 20.0)),
-                  _showFullNameInput(),
+                  _showFirstNameInput(),
+                  _showLastNameInput(),
                   _showMobileNumberInput(),
                   _showPassword(),
                   _registerButtons(),

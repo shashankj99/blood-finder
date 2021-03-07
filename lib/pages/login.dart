@@ -1,5 +1,7 @@
 import 'package:blood_finder/components/mobile_number_validator.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -7,11 +9,12 @@ class LoginPage extends StatefulWidget {
 }
 
 class LoginPageState extends State<LoginPage> {
-  // create a global form key
+  // create a global form & scaffold key
   final _formKey = GlobalKey<FormState>();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // create a variable for obscure text property
-  bool _obscureText = true;
+  bool _isSubmitting = false, _obscureText = true;
 
   // define form  variables
   String _mobileNumberField, _password;
@@ -88,6 +91,10 @@ class LoginPageState extends State<LoginPage> {
       padding: EdgeInsets.only(top: 20.0),
       child: Column(
         children: [
+          _isSubmitting == true ? CircularProgressIndicator(
+            valueColor:
+            AlwaysStoppedAnimation(Theme.of(context).primaryColor),
+          ) :
           RaisedButton(
             child: Text(
               'Login',
@@ -119,13 +126,62 @@ class LoginPageState extends State<LoginPage> {
 
     if (_form.validate()) {
       _form.save();
-      print ('Mobile Number: $_mobileNumberField, Password: $_password');
+      _loginUser();
+    }
+  }
+
+  /*
+   * Method to make API call to login the user
+   */
+  Future<void> _loginUser() async {
+    setState(() => _isSubmitting = true);
+
+    // make API call
+    http.Response response = await http
+        .post('https://secret-retreat-83337.herokuapp.com/login', body: {
+      'mobile': _mobileNumberField,
+      'password': _password,
+    });
+
+    // decode response body
+    final responseData = json.decode(response.body);
+
+    setState(() => _isSubmitting = false);
+
+    // call method that displays message in the snack bar
+    _showMessage(responseData);
+  }
+
+  /*
+   * Method to show response message in snack bar
+   */
+  void _showMessage(responseData) {
+    // create snack bar widget
+    final _snackBar = SnackBar(
+        backgroundColor: Colors.white,
+        content: Text(
+          responseData['message'],
+          style: TextStyle(
+            color: (responseData['status'] == 200) ? Colors.green : Colors.red,
+          ),
+        ));
+
+    // show the snack bar in the scaffold
+    _scaffoldKey.currentState.showSnackBar(_snackBar);
+
+    if (responseData['status'] == 409)
+      Navigator.pushReplacementNamed(context, '/otp-verification');
+
+    // reset form value
+    if (responseData['status'] == 200) {
+      _formKey.currentState.reset();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: Text('Blood Finder > Sign In'),
       ),
