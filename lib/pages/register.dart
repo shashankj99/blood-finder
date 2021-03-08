@@ -1,4 +1,4 @@
-import 'package:blood_finder/components/mobile_number_validator.dart';
+import 'package:blood_finder/services/mobile_number_validator.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -233,7 +233,11 @@ class RegisterPageState extends State<RegisterPage> {
     // navigate to otp verification if registered successfully
     if (responseData['status'] == 200) {
       _formKey.currentState.reset();
-      Navigator.pushReplacementNamed(context, '/otp-verification');
+
+      Future.delayed(Duration(seconds: 1), () {
+        Navigator.pushReplacementNamed(context, '/otp-verification');
+      });
+
     }
   }
 

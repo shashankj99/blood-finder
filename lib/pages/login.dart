@@ -1,7 +1,8 @@
-import 'package:blood_finder/components/mobile_number_validator.dart';
+import 'package:blood_finder/services/mobile_number_validator.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -29,6 +30,9 @@ class LoginPageState extends State<LoginPage> {
     );
   }
 
+  /*
+   * Method to show mobile number widget
+   */
   Widget _showMobileNumberInput() {
     MobileNumberValidator _mobileNumberValidator = new MobileNumberValidator();
     return Padding(
@@ -51,7 +55,7 @@ class LoginPageState extends State<LoginPage> {
   }
 
   /*
-   * Method to show mobile number widget
+   * Method to show password widget
    */
   Widget _showPassword() {
     return Padding(
@@ -71,9 +75,8 @@ class LoginPageState extends State<LoginPage> {
             onTap: () {
               setState(() => _obscureText = !_obscureText);
             },
-            child: Icon(
-                (_obscureText) ? Icons.visibility : Icons.visibility_off
-            ),
+            child:
+                Icon((_obscureText) ? Icons.visibility : Icons.visibility_off),
           ),
           border: OutlineInputBorder(),
           labelText: 'Password',
@@ -91,23 +94,25 @@ class LoginPageState extends State<LoginPage> {
       padding: EdgeInsets.only(top: 20.0),
       child: Column(
         children: [
-          _isSubmitting == true ? CircularProgressIndicator(
-            valueColor:
-            AlwaysStoppedAnimation(Theme.of(context).primaryColor),
-          ) :
-          RaisedButton(
-            child: Text(
-              'Login',
-              style: TextStyle(color: Colors.white),
-            ),
-            elevation: 8.0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(10.0))),
-            color: Theme.of(context).primaryColor,
-            onPressed: () => _submit(),
-          ),
+          _isSubmitting == true
+              ? CircularProgressIndicator(
+                  valueColor:
+                      AlwaysStoppedAnimation(Theme.of(context).primaryColor),
+                )
+              : RaisedButton(
+                  child: Text(
+                    'Login',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  elevation: 8.0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10.0))),
+                  color: Theme.of(context).primaryColor,
+                  onPressed: () => _submit(),
+                ),
           FlatButton(
-            onPressed: () => Navigator.pushReplacementNamed(context, '/register'),
+            onPressed: () =>
+                Navigator.pushReplacementNamed(context, '/register'),
             child: Text(
               'Not a donor? Try Registering',
               style: TextStyle(color: Colors.red[800]),
@@ -122,8 +127,11 @@ class LoginPageState extends State<LoginPage> {
    * Method to handle validation and form save on clicking register
    */
   void _submit() {
+    // get the form state
     final _form = _formKey.currentState;
 
+    // save the form &
+    // login user if form is validated
     if (_form.validate()) {
       _form.save();
       _loginUser();
@@ -150,6 +158,31 @@ class LoginPageState extends State<LoginPage> {
 
     // call method that displays message in the snack bar
     _showMessage(responseData);
+
+    if (responseData['status'] == 409)
+      Future.delayed(Duration(seconds: 1), () {
+        Navigator.pushReplacementNamed(context, '/otp-verification');
+      });
+
+    // reset form value
+    if (responseData['status'] == 200) {
+      _formKey.currentState.reset();
+
+      Future.delayed(Duration(seconds: 1), () {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      });
+
+      // function to store access token in cache
+      _storeAccessToken(responseData);
+    }
+  }
+
+  /*
+   * Method to store access token in cache
+   */
+  Future<void> _storeAccessToken(responseData) async {
+    final sharedPreference = await SharedPreferences.getInstance();
+    sharedPreference.setString('access_token', responseData['access_token']);
   }
 
   /*
@@ -168,14 +201,6 @@ class LoginPageState extends State<LoginPage> {
 
     // show the snack bar in the scaffold
     _scaffoldKey.currentState.showSnackBar(_snackBar);
-
-    if (responseData['status'] == 409)
-      Navigator.pushReplacementNamed(context, '/otp-verification');
-
-    // reset form value
-    if (responseData['status'] == 200) {
-      _formKey.currentState.reset();
-    }
   }
 
   @override
